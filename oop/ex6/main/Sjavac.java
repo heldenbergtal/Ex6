@@ -51,7 +51,7 @@ public class Sjavac {
     }
 
     public static void main(String[] args) {
-        String path = "supplied_material/tests/test003.sjava";
+        String path = "supplied_material/tests/test058.sjava";
         readFile(path);
         System.out.println("");
     }
