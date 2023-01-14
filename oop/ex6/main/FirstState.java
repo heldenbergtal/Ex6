@@ -185,10 +185,10 @@ public class FirstState implements ReadingState {
     private void readVariableAssignment(Matcher matcher) throws IOException {
         checkIfDeclaredBeforeAssignment(matcher, ASSIGNMENT_VAR_NAME_INDEX);
         String varName = matcher.group(ASSIGNMENT_VAR_NAME_INDEX);
-        String type = globalVariablesMap.get(varName).type;
+        String type = globalVariablesMap.get(varName).getType();
         checkAssignmentToFinal(matcher, ASSIGNMENT_VAR_NAME_INDEX);
         checkIfTypeMatches(type, matcher.group(ASSIGNMENT_VAR_ASSIGNMENT_INDEX));
-        globalVariablesMap.get(matcher.group(ASSIGNMENT_VAR_NAME_INDEX)).isAssigned = true;
+        globalVariablesMap.get(matcher.group(ASSIGNMENT_VAR_NAME_INDEX)).setIsAssigned(true);
 
     }
 
@@ -245,7 +245,7 @@ public class FirstState implements ReadingState {
             return;
         }
         checkIfAssigned(assignedVar);
-        if (globalVariablesMap.get(assignedVar).type.matches(varType)) {
+        if (globalVariablesMap.get(assignedVar).getType().matches(varType)) {
             return;
         }
         throw new IOException(String.format(INCOMPATIBLE_TYPES_MSG, lineCounter));
@@ -255,7 +255,7 @@ public class FirstState implements ReadingState {
         if (!globalVariablesMap.containsKey(assignedVar)) {
             throw new IOException(String.format(ASSIGNMENT_BEFORE_DECLARATION_MSG, lineCounter));
         }
-        if (!globalVariablesMap.get(assignedVar).isAssigned) {
+        if (!globalVariablesMap.get(assignedVar).getIsAssigned()) {
             throw new IOException(String.format(UNINITIALIZED_VAR_ERROR_MSG, lineCounter));
         }
     }
@@ -267,7 +267,7 @@ public class FirstState implements ReadingState {
     }
 
     private void checkAssignmentToFinal(Matcher matcher, int nameIndex) throws IOException {
-        if (!globalVariablesMap.get(matcher.group(nameIndex)).isFinal) {
+        if (!globalVariablesMap.get(matcher.group(nameIndex)).getIsFinal()) {
             throw new IOException(String.format(VALUE_TO_FINAL_VARIABLE_MSG, lineCounter));
         }
     }
