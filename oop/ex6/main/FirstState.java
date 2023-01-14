@@ -24,11 +24,6 @@ public class FirstState implements ReadingState {
     private static final int DECLARATION_VAR_NAME_INDEX = 2;
     private static final int ASSIGNMENT_VAR_NAME_INDEX = 1;
     private static final int ASSIGNMENT_VAR_ASSIGNMENT_INDEX = 2;
-    private static final int GLOBAL_VAR_TYPE = 0;
-    private static final int GLOBAL_VAR_ASSIGNED = 1;
-    private static final int GLOBAL_VAR_FINAL = 2;
-    public static final String TRUE_KEY = "true";
-    public static final String FALSE_KEY = "false";
     static final char END_LINE_MARK = ';';
     static final String VARIABLES_SEPARATOR = ",";
     static final String SPACE = " ";
