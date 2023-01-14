@@ -70,8 +70,8 @@ public class FirstState implements ReadingState {
     public static final String FINAL_KEY = "final";
     public static final int FIRST_SLOT_INDEX = 0;
     public static final String END_OF_FILE_MSG = "reached end of file";
-    public static final char OPEN_CURLY_BRACKETS = '}';
-    public static final char CLOSE_CURLY_BRACKETS = '{';
+    public static final char OPEN_CURLY_BRACKETS = '{';
+    public static final char CLOSE_CURLY_BRACKETS = '}';
     public static final int NOT_FOUND = -1;
     public static final int INIT_NUMBER_OPEN_BRACKETS_IN_METHOD = 1;
     public static final int INIT_NUMBER_CLOSE_BRACKETS_IN_METHOD = 0;
@@ -129,15 +129,16 @@ public class FirstState implements ReadingState {
     }
 
     private void getToEndOfMethod() throws IOException {
-        int openBracketsCounter = 1, closeBracketsCounter = 0;
+        int openBracketsCounter = INIT_NUMBER_OPEN_BRACKETS_IN_METHOD,
+                closeBracketsCounter = INIT_NUMBER_CLOSE_BRACKETS_IN_METHOD;
         String currLine;
         while ((currLine = bufferedReader.readLine()) != null){
             lineCounter++;
-            int openBracketsIndex = currLine.lastIndexOf('{'),
-                    closeBracketsIndex = currLine.lastIndexOf('}');
-            if (openBracketsIndex != -1 && openBracketsIndex == currLine.length()- 1) {
+            int openBracketsIndex = currLine.lastIndexOf(OPEN_CURLY_BRACKETS),
+                    closeBracketsIndex = currLine.lastIndexOf(CLOSE_CURLY_BRACKETS);
+            if (openBracketsIndex != NOT_FOUND && openBracketsIndex == currLine.length()- 1) {
                 openBracketsCounter+= 1;
-            } else if (closeBracketsIndex != -1 && closeBracketsIndex == currLine.length()- 1) {
+            } else if (closeBracketsIndex != NOT_FOUND && closeBracketsIndex == currLine.length()- 1) {
                 closeBracketsCounter += 1;
             }
             if (openBracketsCounter == closeBracketsCounter) {
@@ -145,7 +146,7 @@ public class FirstState implements ReadingState {
             }
         }
         if (currLine == null) {
-            throw new IOException("reached end of file");
+            throw new IOException(END_OF_FILE_MSG);
         }
     }// TODO - check return in second pass?
 
