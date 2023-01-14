@@ -29,15 +29,14 @@ public class FirstState implements ReadingState {
     private static final int GLOBAL_VAR_FINAL = 2;
     public static final String TRUE_KEY = "true";
     public static final String FALSE_KEY = "false";
-    public static final char END_LINE_MARK = ';';
-    public static final String VARIABLES_SEPARATOR = ",";
-    public static final String SPACE = " ";
-
-    public static final String INT_KEY = "int";
-    public static final String CHAR_KEY = "char";
-    public static final String STRING_KEY = "String";
-    public static final String DOUBLE_KEY = "double";
-    public static final String BOOLEAN_KEY = "boolean";
+    static final char END_LINE_MARK = ';';
+    static final String VARIABLES_SEPARATOR = ",";
+    static final String SPACE = " ";
+    static final String INT_KEY = "int";
+    static final String CHAR_KEY = "char";
+    static final String STRING_KEY = "String";
+    static final String DOUBLE_KEY = "double";
+    static final String BOOLEAN_KEY = "boolean";
     static final String INT_ASSIGNMENT = "[+-]?[0-9]+";
     static final String CHAR_ASSIGNMENT = "'.'";
     static final String STRING_ASSIGNMENT = "\".*\"";
@@ -45,6 +44,7 @@ public class FirstState implements ReadingState {
     static final String BOOLEAN_ASSIGNMENT = DOUBLE_ASSIGNMENT + "|true|false";
     public static final String LEGAL_ASSIGNMENT = String.format("%s|%s|%s|%s|%s", INT_ASSIGNMENT,
             CHAR_ASSIGNMENT, STRING_ASSIGNMENT, DOUBLE_ASSIGNMENT, BOOLEAN_ASSIGNMENT);
+    static final String COMMENT_EMPTY_LINE_REGEX = "//.*|\\s*";
     private static final String VARIABLE_DECLARATION_REGEX = String.format("\\s*(%s)\\s*(%s)\\s*",
             Sjavac.VARS_TYPES, Sjavac.NAME_REGEX);
     private static final String METHOD_REGEX = String.format("\\s*(void)\\s*(%s)\\s*\\(([^)]*)\\)\\s*\\{\\s*",
@@ -81,6 +81,7 @@ public class FirstState implements ReadingState {
     private final Pattern variableDeclarationPattern = Pattern.compile(VARIABLE_DECLARATION_REGEX);
     private final Pattern methodPrefixPattern = Pattern.compile(METHOD_REGEX);
     private final Pattern methodParametersPattern = Pattern.compile(PARAMETERS_REGEX);
+    private final Pattern CommentOrEmptyLinePattern = Pattern.compile(COMMENT_EMPTY_LINE_REGEX);
 
 
     public static final Map<String, String> TYPE_REGEX_MAP = new HashMap<>() {{
@@ -93,7 +94,7 @@ public class FirstState implements ReadingState {
     private final BufferedReader bufferedReader;
     private final Map<String, Method> methodsMap;
     private final Map<String, Variable> globalVariablesMap;
-    private int lineCounter = 0;
+    private int lineCounter = 1;
 
 
     public FirstState(BufferedReader bufferedReader, Map<String, Method> methodsMap,
@@ -110,14 +111,16 @@ public class FirstState implements ReadingState {
             Matcher matcherVariableAssignment = variableAssignmentPattern.matcher(line);
             Matcher matcherVariable = variablePattern.matcher(line);
             Matcher matcherMethod = methodPrefixPattern.matcher(line);
-
+            Matcher matcherCommentOrEmptyLine = CommentOrEmptyLinePattern.matcher(line);
             if (matcherVariable.matches()) {
                 handleDeclarationOrAssignment(line);
             } else if (matcherVariableAssignment.matches()) {
                 handleAssignments(line);
             } else if (matcherMethod.matches()) {
                 readMethodDeclaration(matcherMethod);
-                getToEndOfMethod(bufferedReader);
+            } else if (matcherCommentOrEmptyLine.matches()) {
+                ++lineCounter;
+                continue;
             } else {
                 throw new IOException(String.format(ILLEGAL_CODE_MSG, lineCounter));
             }
@@ -125,17 +128,17 @@ public class FirstState implements ReadingState {
         }
     }
 
-    private void getToEndOfMethod(BufferedReader bufferedReader) throws IOException {
+    private void getToEndOfMethod() throws IOException {
         int openBracketsCounter = 1, closeBracketsCounter = 0;
         String currLine;
         while ((currLine = bufferedReader.readLine()) != null){
             lineCounter++;
-            int openBracketsIndex = currLine.lastIndexOf('}'),
-                    closeBracketsIndex = currLine.lastIndexOf('{');
+            int openBracketsIndex = currLine.lastIndexOf('{'),
+                    closeBracketsIndex = currLine.lastIndexOf('}');
             if (openBracketsIndex != -1 && openBracketsIndex == currLine.length()- 1) {
-                closeBracketsCounter+= 1;
-            } else if (closeBracketsIndex != -1 && openBracketsIndex == currLine.length()- 1) {
-                openBracketsCounter += 1;
+                openBracketsCounter+= 1;
+            } else if (closeBracketsIndex != -1 && closeBracketsIndex == currLine.length()- 1) {
+                closeBracketsCounter += 1;
             }
             if (openBracketsCounter == closeBracketsCounter) {
                 break;
@@ -206,8 +209,11 @@ public class FirstState implements ReadingState {
         if (methodsMap.containsKey(matcher.group(METHOD_NAME_INDEX))) {
             throw new IOException(String.format(OVERLOAD_METHOD_MSG, lineCounter));
         }
+        int startMethodLine = lineCounter;
+        getToEndOfMethod();
+        int endMethodLine = lineCounter;
         Map<String, Variable> variables = ReadVariables(matcher.group(METHOD_PARAMETERS_INDEX));
-        Method method = new Method(variables, matcher.group(METHOD_RETURN_TYPE_INDEX));
+        Method method = new Method(variables, matcher.group(METHOD_RETURN_TYPE_INDEX), startMethodLine, endMethodLine);
         methodsMap.put(matcher.group(METHOD_NAME_INDEX), method);
     }
 
