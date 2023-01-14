@@ -1,15 +1,13 @@
 package oop.ex6.main;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class Method {
-    Map<String, Variable> parameters = new HashMap<>();
+    Variable[] parameters;
     String returnType;
 
 
-    public Method(Map<String, Variable> parameters, String returnType) {
+    public Method(Variable[] parameters, String returnType) {
         this.returnType = returnType;
-        this.parameters.putAll(parameters);
+        this.parameters = new Variable[parameters.length];
+        System.arraycopy(parameters, 0, this.parameters, 0, parameters.length);
     }
 }
