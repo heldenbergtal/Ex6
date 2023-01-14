@@ -123,7 +123,7 @@ public class FirstState implements ReadingState {
         }
     }
 
-    private void getToEndOfMethod() throws IllegalCodeException {
+    private void getToEndOfMethod() throws IllegalCodeException, IOException {
         int openBracketsCounter = INIT_NUMBER_OPEN_BRACKETS_IN_METHOD,
                 closeBracketsCounter = INIT_NUMBER_CLOSE_BRACKETS_IN_METHOD;
         String currLine;
@@ -201,7 +201,7 @@ public class FirstState implements ReadingState {
         globalVariablesMap.put(matcher.group(INITIALIZATION_VAR_NAME_INDEX), variable);
     }
 
-    private void readMethodDeclaration(Matcher matcher) throws IllegalCodeException {
+    private void readMethodDeclaration(Matcher matcher) throws IllegalCodeException, IOException {
         if (methodsMap.containsKey(matcher.group(METHOD_NAME_INDEX))) {
             throw new IllegalCodeException(String.format(OVERLOAD_METHOD_MSG, lineCounter));
         }
