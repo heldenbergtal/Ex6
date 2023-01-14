@@ -2,7 +2,9 @@ package oop.ex6.main;
 
 import java.io.*;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class Sjavac {
     static final String PATH_REGEX = "..sjava";
@@ -19,8 +21,9 @@ public class Sjavac {
     public static final int NUMBER_OF_FILE_READING = 2;
     private static ReadingState firstReading;
     private static ReadingState secondReading;
-    private static final Map<String, String[]> methodsMap = new HashMap<>();
-    private static final Map<String, String[]> globalVariablesMap = new HashMap<>();
+    private static final Map<String, Method> methodsMap = new HashMap<>();
+    private static final Map<String, Variable> globalVariablesMap = new HashMap<>();
+
 
     public static void readFile(String pathName) {
         try {
@@ -51,7 +54,7 @@ public class Sjavac {
     }
 
     public static void main(String[] args) {
-        String path = "supplied_material/tests/test058.sjava";
+        String path = "supplied_material/tests/test106.sjava";
         readFile(path);
         System.out.println("");
     }

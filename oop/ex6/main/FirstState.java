@@ -30,7 +30,7 @@ public class FirstState implements ReadingState {
     public static final String TRUE_KEY = "true";
     public static final String FALSE_KEY = "false";
     public static final char END_LINE_MARK = ';';
-    public static final String VARIABLES_SEPERATOR = ",";
+    public static final String VARIABLES_SEPARATOR = ",";
     public static final String SPACE = " ";
 
     public static final String INT_KEY = "int";
@@ -54,14 +54,33 @@ public class FirstState implements ReadingState {
             Sjavac.NAME_REGEX, LEGAL_ASSIGNMENT, Sjavac.NAME_REGEX, Sjavac.NAME_REGEX, LEGAL_ASSIGNMENT, Sjavac.NAME_REGEX);
     private static final String VARIABLE_INITIALIZATION_REGEX = String.format("\\s*(final)?\\s*(%s)\\s*(%s)" +
             "\\s*=\\s*(%s|%s)\\s*", Sjavac.VARS_TYPES, Sjavac.NAME_REGEX, LEGAL_ASSIGNMENT, Sjavac.NAME_REGEX);
-
-    private static final String VARIABLE_REGEX = String.format("(?:%s)|(?:%s)(,\\s*(?:%s)|(?:%s)\\s*)*;",
+    private static final String PARAMETERS_REGEX = String.format("(?:\\s*(final)?%s)", VARIABLE_DECLARATION_REGEX);
+    private static final String VARIABLE_REGEX = String.format("((?:%s)|(?:%s))(,\\s*(?:%s)|(?:%s)\\s*)*;",
             VARIABLE_DECLARATION_REGEX, VARIABLE_INITIALIZATION_REGEX, Sjavac.NAME_REGEX, VARIABLE_ASSIGNMENT_REGEX);
+    public static final int METHOD_NAME_INDEX = 2;
+    public static final String OVERLOAD_METHOD_MSG = "overload is not allowed in line %d";
+    public static final int METHOD_PARAMETERS_INDEX = 3;
+    public static final int METHOD_RETURN_TYPE_INDEX = 1;
+    public static final int PARAMETERS_FINAL_INDEX = 1;
+    public static final int PARAMETERS_TYPE_INDEX = 2;
+    public static final String INCORRECT_PARAMETER_MSG = "incorrect parameter in line %d";
+    private static final int PARAMETERS_NAME_INDEX = 3;
+    public static final String PARAMETER_ALREADY_DEFINED_MSG = "variable a is already defined in method " +
+            "name, in line %d";
+    public static final String FINAL_KEY = "final";
+    public static final int FIRST_SLOT_INDEX = 0;
+    public static final String END_OF_FILE_MSG = "reached end of file";
+    public static final char OPEN_CURLY_BRACKETS = '}';
+    public static final char CLOSE_CURLY_BRACKETS = '{';
+    public static final int NOT_FOUND = -1;
+    public static final int INIT_NUMBER_OPEN_BRACKETS_IN_METHOD = 1;
+    public static final int INIT_NUMBER_CLOSE_BRACKETS_IN_METHOD = 0;
     private final Pattern variableInitializationPattern = Pattern.compile(VARIABLE_INITIALIZATION_REGEX);
     private final Pattern variableAssignmentPattern = Pattern.compile(VARIABLE_ASSIGNMENT_REGEX);
     private final Pattern variablePattern = Pattern.compile(VARIABLE_REGEX);
     private final Pattern variableDeclarationPattern = Pattern.compile(VARIABLE_DECLARATION_REGEX);
     private final Pattern methodPrefixPattern = Pattern.compile(METHOD_REGEX);
+    private final Pattern methodParametersPattern = Pattern.compile(PARAMETERS_REGEX);
 
 
     public static final Map<String, String> TYPE_REGEX_MAP = new HashMap<>() {{
@@ -72,14 +91,13 @@ public class FirstState implements ReadingState {
         put(DOUBLE_KEY, DOUBLE_ASSIGNMENT);
     }};
     private final BufferedReader bufferedReader;
-    private final Map<String, String[]> methodsMap;
-    private final Map<String, String[]> globalVariablesMap;
-
+    private final Map<String, Method> methodsMap;
+    private final Map<String, Variable> globalVariablesMap;
     private int lineCounter = 0;
 
 
-    public FirstState(BufferedReader bufferedReader, Map<String, String[]> methodsMap,
-                      Map<String, String[]> variablesMap) {
+    public FirstState(BufferedReader bufferedReader, Map<String, Method> methodsMap,
+                      Map<String, Variable> variablesMap) {
         this.bufferedReader = bufferedReader;
         this.methodsMap = methodsMap;
         this.globalVariablesMap = variablesMap;
@@ -99,6 +117,7 @@ public class FirstState implements ReadingState {
                 handleAssignments(line);
             } else if (matcherMethod.matches()) {
                 readMethodDeclaration(matcherMethod);
+                getToEndOfMethod(bufferedReader);
             } else {
                 throw new IOException(String.format(ILLEGAL_CODE_MSG, lineCounter));
             }
@@ -106,9 +125,30 @@ public class FirstState implements ReadingState {
         }
     }
 
+    private void getToEndOfMethod(BufferedReader bufferedReader) throws IOException {
+        int openBracketsCounter = INIT_NUMBER_OPEN_BRACKETS_IN_METHOD;
+        int closeBracketsCounter = INIT_NUMBER_CLOSE_BRACKETS_IN_METHOD;
+        String currLine;
+        while ((currLine = bufferedReader.readLine()) != null) {
+            lineCounter++;
+            if (currLine.lastIndexOf(OPEN_CURLY_BRACKETS) != NOT_FOUND) {
+                ++closeBracketsCounter;
+            } else if (currLine.lastIndexOf(CLOSE_CURLY_BRACKETS) != NOT_FOUND) {
+                ++openBracketsCounter;
+            }
+            if (openBracketsCounter == closeBracketsCounter) {
+                break;
+            }
+        }
+        if (currLine == null) {
+            throw new IOException(END_OF_FILE_MSG);
+        }
+        // TODO - check return in second pass?
+    }
+
     private void handleAssignments(String line) throws IOException {
         line = line.substring(0, line.lastIndexOf(END_LINE_MARK));
-        String[] arr = line.split(VARIABLES_SEPERATOR);
+        String[] arr = line.split(VARIABLES_SEPARATOR);
         for (String s : arr) {
             Matcher matcher = variableAssignmentPattern.matcher(s + END_LINE_MARK);
             if (matcher.matches()) {
@@ -119,9 +159,9 @@ public class FirstState implements ReadingState {
 
     private void handleDeclarationOrAssignment(String line) throws IOException {
         line = line.substring(0, line.lastIndexOf(END_LINE_MARK));
-        String[] arr = line.split(VARIABLES_SEPERATOR);
-        String[] firstCommand = arr[0].split(SPACE);
-        String type = firstCommand[0].equals("final") ? firstCommand[1] : firstCommand[0];
+        String[] arr = line.split(VARIABLES_SEPARATOR);
+        String[] firstCommand = arr[FIRST_SLOT_INDEX].split(SPACE);
+        String type = firstCommand[FIRST_SLOT_INDEX].equals(FINAL_KEY) ? firstCommand[1] : firstCommand[FIRST_SLOT_INDEX];
         for (int i = 0; i < arr.length; ++i) {
             String s = i > 0 ? type + arr[i] : arr[i];
             Matcher matcherVariableDeclaration = variableDeclarationPattern.matcher(s);
@@ -138,31 +178,60 @@ public class FirstState implements ReadingState {
 
     private void readVariableDeclaration(Matcher matcher) throws IOException {
         checkIfVariableWasDeclared(matcher, DECLARATION_VAR_NAME_INDEX);
-        String[] characteristics = new String[]{matcher.group(DECLARATION_VAR_TYPE_INDEX), FALSE_KEY, FALSE_KEY};
-        globalVariablesMap.put(matcher.group(DECLARATION_VAR_NAME_INDEX), characteristics);
+        Variable variable = new Variable(matcher.group(DECLARATION_VAR_TYPE_INDEX), false, false);
+        globalVariablesMap.put(matcher.group(DECLARATION_VAR_NAME_INDEX), variable);
     }
 
     private void readVariableAssignment(Matcher matcher) throws IOException {
         checkIfDeclaredBeforeAssignment(matcher, ASSIGNMENT_VAR_NAME_INDEX);
         String varName = matcher.group(ASSIGNMENT_VAR_NAME_INDEX);
-        String type = globalVariablesMap.get(varName)[GLOBAL_VAR_TYPE];
+        String type = globalVariablesMap.get(varName).type;
         checkAssignmentToFinal(matcher, ASSIGNMENT_VAR_NAME_INDEX);
         checkIfTypeMatches(type, matcher.group(ASSIGNMENT_VAR_ASSIGNMENT_INDEX));
-        globalVariablesMap.get(matcher.group(ASSIGNMENT_VAR_NAME_INDEX))[GLOBAL_VAR_ASSIGNED] = TRUE_KEY;
+        globalVariablesMap.get(matcher.group(ASSIGNMENT_VAR_NAME_INDEX)).isAssigned = true;
+
     }
 
     private void readVariableInitialization(Matcher matcher) throws IOException {
         checkIfVariableWasDeclared(matcher, INITIALIZATION_VAR_NAME_INDEX);
         String varAssignment = matcher.group(INITIALIZATION_VAR_ASSIGNMENT_INDEX);
         checkIfTypeMatches(matcher.group(INITIALIZATION_VAR_TYPE_INDEX), varAssignment);
-        String isFinal = matcher.group(INITIALIZATION_VAR_FINAL_INDEX) != null ? TRUE_KEY : FALSE_KEY;
-        String[] characteristics = new String[]{matcher.group(INITIALIZATION_VAR_TYPE_INDEX), TRUE_KEY, isFinal};
-        globalVariablesMap.put(matcher.group(INITIALIZATION_VAR_NAME_INDEX), characteristics);
+        boolean isFinal = matcher.group(INITIALIZATION_VAR_FINAL_INDEX) != null;
+        Variable variable = new Variable(matcher.group(INITIALIZATION_VAR_TYPE_INDEX), true, isFinal);
+        globalVariablesMap.put(matcher.group(INITIALIZATION_VAR_NAME_INDEX), variable);
     }
 
-    private void readMethodDeclaration(Matcher matcher) {
+    private void readMethodDeclaration(Matcher matcher) throws IOException {
+        if (methodsMap.containsKey(matcher.group(METHOD_NAME_INDEX))) {
+            throw new IOException(String.format(OVERLOAD_METHOD_MSG, lineCounter));
+        }
+        Map<String, Variable> variables = ReadVariables(matcher.group(METHOD_PARAMETERS_INDEX));
+        Method method = new Method(variables, matcher.group(METHOD_RETURN_TYPE_INDEX));
+        methodsMap.put(matcher.group(METHOD_NAME_INDEX), method);
+    }
 
+    private Map<String, Variable> ReadVariables(String initVariables) throws IOException {
+        String[] arr = initVariables.isEmpty() ? new String[]{} : initVariables.split(VARIABLES_SEPARATOR);
+        Map<String, Variable> variables = new HashMap<>();
+        for (var param : arr) {
+            Matcher matcher = methodParametersPattern.matcher(param);
+            if (matcher.matches()) {
+                checkParameterAlreadyDefined(variables, matcher.group(PARAMETERS_NAME_INDEX));
+                boolean isFinal = matcher.group(PARAMETERS_FINAL_INDEX) != null;
+                String type = matcher.group(PARAMETERS_TYPE_INDEX);
+                Variable variable = new Variable(type, true, isFinal);
+                variables.put(matcher.group(PARAMETERS_NAME_INDEX), variable);
+            } else {
+                throw new IOException(String.format(INCORRECT_PARAMETER_MSG, lineCounter));
+            }
+        }
+        return variables;
+    }
 
+    private void checkParameterAlreadyDefined(Map<String, Variable> variables, String paramName) throws IOException {
+        if (variables.containsKey(paramName)) {
+            throw new IOException(String.format(PARAMETER_ALREADY_DEFINED_MSG, lineCounter));
+        }
     }
 
     private void checkIfVariableWasDeclared(Matcher matcher, int nameIndex) throws IOException {
@@ -176,7 +245,7 @@ public class FirstState implements ReadingState {
             return;
         }
         checkIfAssigned(assignedVar);
-        if (globalVariablesMap.get(assignedVar)[GLOBAL_VAR_TYPE].matches(varType)) {
+        if (globalVariablesMap.get(assignedVar).type.matches(varType)) {
             return;
         }
         throw new IOException(String.format(INCOMPATIBLE_TYPES_MSG, lineCounter));
@@ -186,7 +255,7 @@ public class FirstState implements ReadingState {
         if (!globalVariablesMap.containsKey(assignedVar)) {
             throw new IOException(String.format(ASSIGNMENT_BEFORE_DECLARATION_MSG, lineCounter));
         }
-        if (!globalVariablesMap.get(assignedVar)[GLOBAL_VAR_ASSIGNED].equals(TRUE_KEY)) {
+        if (!globalVariablesMap.get(assignedVar).isAssigned) {
             throw new IOException(String.format(UNINITIALIZED_VAR_ERROR_MSG, lineCounter));
         }
     }
@@ -198,7 +267,7 @@ public class FirstState implements ReadingState {
     }
 
     private void checkAssignmentToFinal(Matcher matcher, int nameIndex) throws IOException {
-        if (!globalVariablesMap.get(matcher.group(nameIndex))[GLOBAL_VAR_FINAL].equals(TRUE_KEY)) {
+        if (!globalVariablesMap.get(matcher.group(nameIndex)).isFinal) {
             throw new IOException(String.format(VALUE_TO_FINAL_VARIABLE_MSG, lineCounter));
         }
     }
@@ -206,6 +275,3 @@ public class FirstState implements ReadingState {
 }
 
 
-//        if (line.matches(String.format("\\s*" + INT_KEY + "\\s*" + NAME_REGEX + "\\s*=\\s*" + "\\s*" +
-//        TYPE_REGEX_MAP.get(INT_KEY) + "\\s*;"))) {
-//        System.out.println("hello");
