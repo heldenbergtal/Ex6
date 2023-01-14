@@ -1,13 +1,30 @@
 package oop.ex6.main;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
 public class Method {
-    Variable[] parameters;
-    String returnType;
+    private final Map<String, Variable> parameters = new HashMap<>();
+    private final String returnType;
 
 
-    public Method(Variable[] parameters, String returnType) {
+    public Method(Map<String, Variable> parameters, String returnType) {
         this.returnType = returnType;
-        this.parameters = new Variable[parameters.length];
-        System.arraycopy(parameters, 0, this.parameters, 0, parameters.length);
+        this.parameters.putAll(parameters);
     }
+
+    public void addLocalVariable(String varName, Variable variable){
+        parameters.put(varName, variable);
+    }
+
+    public Variable getLocalVariable(String name){
+        if (!parameters.containsKey(name)) {
+            return null; // TODO - "throw new Exception "cannot find symbol"
+        }
+        return parameters.get(name);
+    }
+
+
+
 }
