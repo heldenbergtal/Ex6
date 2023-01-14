@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -58,6 +57,24 @@ public class FirstState implements ReadingState {
     private static final String PARAMETERS_REGEX = String.format("(?:\\s*(final)?%s)", VARIABLE_DECLARATION_REGEX);
     private static final String VARIABLE_REGEX = String.format("((?:%s)|(?:%s))(,\\s*(?:%s)|(?:%s)\\s*)*;",
             VARIABLE_DECLARATION_REGEX, VARIABLE_INITIALIZATION_REGEX, Sjavac.NAME_REGEX, VARIABLE_ASSIGNMENT_REGEX);
+    public static final int METHOD_NAME_INDEX = 2;
+    public static final String OVERLOAD_METHOD_MSG = "overload is not allowed in line %d";
+    public static final int METHOD_PARAMETERS_INDEX = 3;
+    public static final int METHOD_RETURN_TYPE_INDEX = 1;
+    public static final int PARAMETERS_FINAL_INDEX = 1;
+    public static final int PARAMETERS_TYPE_INDEX = 2;
+    public static final String INCORRECT_PARAMETER_MSG = "incorrect parameter in line %d";
+    private static final int PARAMETERS_NAME_INDEX = 3;
+    public static final String PARAMETER_ALREADY_DEFINED_MSG = "variable a is already defined in method " +
+            "name, in line %d";
+    public static final String FINAL_KEY = "final";
+    public static final int FIRST_SLOT_INDEX = 0;
+    public static final String END_OF_FILE_MSG = "reached end of file";
+    public static final char OPEN_CURLY_BRACKETS = '}';
+    public static final char CLOSE_CURLY_BRACKETS = '{';
+    public static final int NOT_FOUND = -1;
+    public static final int INIT_NUMBER_OPEN_BRACKETS_IN_METHOD = 1;
+    public static final int INIT_NUMBER_CLOSE_BRACKETS_IN_METHOD = 0;
     private final Pattern variableInitializationPattern = Pattern.compile(VARIABLE_INITIALIZATION_REGEX);
     private final Pattern variableAssignmentPattern = Pattern.compile(VARIABLE_ASSIGNMENT_REGEX);
     private final Pattern variablePattern = Pattern.compile(VARIABLE_REGEX);
@@ -76,7 +93,6 @@ public class FirstState implements ReadingState {
     private final BufferedReader bufferedReader;
     private final Map<String, Method> methodsMap;
     private final Map<String, Variable> globalVariablesMap;
-
     private int lineCounter = 0;
 
 
@@ -110,25 +126,24 @@ public class FirstState implements ReadingState {
     }
 
     private void getToEndOfMethod(BufferedReader bufferedReader) throws IOException {
-        int openBracketsCounter = 1;
-        int closeBracketsCounter = 0;
+        int openBracketsCounter = INIT_NUMBER_OPEN_BRACKETS_IN_METHOD;
+        int closeBracketsCounter = INIT_NUMBER_CLOSE_BRACKETS_IN_METHOD;
         String currLine;
-        while ((currLine = bufferedReader.readLine()) != null){
+        while ((currLine = bufferedReader.readLine()) != null) {
             lineCounter++;
-            int openBracketsIndex = currLine.lastIndexOf('}');
-            int closeBracketsIndex = currLine.lastIndexOf('{');
-            if (openBracketsIndex != -1 && openBracketsIndex == currLine.length()- 1) {
-                closeBracketsCounter+= 1;
-            } else if (closeBracketsIndex != -1 && openBracketsIndex == currLine.length()- 1) {
-                openBracketsCounter += 1;
+            if (currLine.lastIndexOf(OPEN_CURLY_BRACKETS) != NOT_FOUND) {
+                ++closeBracketsCounter;
+            } else if (currLine.lastIndexOf(CLOSE_CURLY_BRACKETS) != NOT_FOUND) {
+                ++openBracketsCounter;
             }
             if (openBracketsCounter == closeBracketsCounter) {
                 break;
             }
         }
         if (currLine == null) {
-            throw new IOException("reached end of file");
+            throw new IOException(END_OF_FILE_MSG);
         }
+        // TODO - check return in second pass?
     }
 
     private void handleAssignments(String line) throws IOException {
@@ -145,8 +160,8 @@ public class FirstState implements ReadingState {
     private void handleDeclarationOrAssignment(String line) throws IOException {
         line = line.substring(0, line.lastIndexOf(END_LINE_MARK));
         String[] arr = line.split(VARIABLES_SEPARATOR);
-        String[] firstCommand = arr[0].split(SPACE);
-        String type = firstCommand[0].equals("final") ? firstCommand[1] : firstCommand[0];
+        String[] firstCommand = arr[FIRST_SLOT_INDEX].split(SPACE);
+        String type = firstCommand[FIRST_SLOT_INDEX].equals(FINAL_KEY) ? firstCommand[1] : firstCommand[FIRST_SLOT_INDEX];
         for (int i = 0; i < arr.length; ++i) {
             String s = i > 0 ? type + arr[i] : arr[i];
             Matcher matcherVariableDeclaration = variableDeclarationPattern.matcher(s);
@@ -173,7 +188,7 @@ public class FirstState implements ReadingState {
         String type = globalVariablesMap.get(varName).type;
         checkAssignmentToFinal(matcher, ASSIGNMENT_VAR_NAME_INDEX);
         checkIfTypeMatches(type, matcher.group(ASSIGNMENT_VAR_ASSIGNMENT_INDEX));
-        globalVariablesMap.get(matcher.group(ASSIGNMENT_VAR_NAME_INDEX)).isAssigned= true;
+        globalVariablesMap.get(matcher.group(ASSIGNMENT_VAR_NAME_INDEX)).isAssigned = true;
 
     }
 
@@ -187,29 +202,36 @@ public class FirstState implements ReadingState {
     }
 
     private void readMethodDeclaration(Matcher matcher) throws IOException {
-        if (methodsMap.containsKey(matcher.group(2))) {
-            throw new IOException(String.format("overload is not allowed in line %d", lineCounter));
+        if (methodsMap.containsKey(matcher.group(METHOD_NAME_INDEX))) {
+            throw new IOException(String.format(OVERLOAD_METHOD_MSG, lineCounter));
         }
-        Variable[] variables = ReadVariables(matcher.group(3));
-        Method method = new Method(variables, matcher.group(1));
-        methodsMap.put(matcher.group(2), method);
+        Map<String, Variable> variables = ReadVariables(matcher.group(METHOD_PARAMETERS_INDEX));
+        Method method = new Method(variables, matcher.group(METHOD_RETURN_TYPE_INDEX));
+        methodsMap.put(matcher.group(METHOD_NAME_INDEX), method);
     }
 
-    private Variable[] ReadVariables(String initVariables) throws IOException {
-        String[] arr = initVariables.isEmpty() ? new String[] {}: initVariables.split(VARIABLES_SEPARATOR);
-        Variable[] variables = new Variable[arr.length];
-        for (int i = 0; i < arr.length; i++) {
-            Matcher matcher = methodParametersPattern.matcher(arr[i]);
+    private Map<String, Variable> ReadVariables(String initVariables) throws IOException {
+        String[] arr = initVariables.isEmpty() ? new String[]{} : initVariables.split(VARIABLES_SEPARATOR);
+        Map<String, Variable> variables = new HashMap<>();
+        for (var param : arr) {
+            Matcher matcher = methodParametersPattern.matcher(param);
             if (matcher.matches()) {
-                boolean isFinal = matcher.group(1) != null;
-                String type = matcher.group(2);
+                checkParameterAlreadyDefined(variables, matcher.group(PARAMETERS_NAME_INDEX));
+                boolean isFinal = matcher.group(PARAMETERS_FINAL_INDEX) != null;
+                String type = matcher.group(PARAMETERS_TYPE_INDEX);
                 Variable variable = new Variable(type, true, isFinal);
-                variables[i] = variable;
+                variables.put(matcher.group(PARAMETERS_NAME_INDEX), variable);
             } else {
-                throw new IOException(String.format("incorrect parameter in line %d", lineCounter));
+                throw new IOException(String.format(INCORRECT_PARAMETER_MSG, lineCounter));
             }
         }
         return variables;
+    }
+
+    private void checkParameterAlreadyDefined(Map<String, Variable> variables, String paramName) throws IOException {
+        if (variables.containsKey(paramName)) {
+            throw new IOException(String.format(PARAMETER_ALREADY_DEFINED_MSG, lineCounter));
+        }
     }
 
     private void checkIfVariableWasDeclared(Matcher matcher, int nameIndex) throws IOException {
@@ -253,6 +275,3 @@ public class FirstState implements ReadingState {
 }
 
 
-//        if (line.matches(String.format("\\s*" + INT_KEY + "\\s*" + NAME_REGEX + "\\s*=\\s*" + "\\s*" +
-//        TYPE_REGEX_MAP.get(INT_KEY) + "\\s*;"))) {
-//        System.out.println("hello");
