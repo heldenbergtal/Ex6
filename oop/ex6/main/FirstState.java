@@ -126,25 +126,26 @@ public class FirstState implements ReadingState {
     }
 
     private void getToEndOfMethod(BufferedReader bufferedReader) throws IOException {
-        int openBracketsCounter = INIT_NUMBER_OPEN_BRACKETS_IN_METHOD;
-        int closeBracketsCounter = INIT_NUMBER_CLOSE_BRACKETS_IN_METHOD;
+        int openBracketsCounter = 1, closeBracketsCounter = 0;
         String currLine;
-        while ((currLine = bufferedReader.readLine()) != null) {
+        while ((currLine = bufferedReader.readLine()) != null){
             lineCounter++;
-            if (currLine.lastIndexOf(OPEN_CURLY_BRACKETS) != NOT_FOUND) {
-                ++closeBracketsCounter;
-            } else if (currLine.lastIndexOf(CLOSE_CURLY_BRACKETS) != NOT_FOUND) {
-                ++openBracketsCounter;
+            int openBracketsIndex = currLine.lastIndexOf('}'),
+                    closeBracketsIndex = currLine.lastIndexOf('{');
+            if (openBracketsIndex != -1 && openBracketsIndex == currLine.length()- 1) {
+                closeBracketsCounter+= 1;
+            } else if (closeBracketsIndex != -1 && openBracketsIndex == currLine.length()- 1) {
+                openBracketsCounter += 1;
             }
             if (openBracketsCounter == closeBracketsCounter) {
                 break;
             }
         }
         if (currLine == null) {
-            throw new IOException(END_OF_FILE_MSG);
+            throw new IOException("reached end of file");
         }
-        // TODO - check return in second pass?
-    }
+    }// TODO - check return in second pass?
+
 
     private void handleAssignments(String line) throws IOException {
         line = line.substring(0, line.lastIndexOf(END_LINE_MARK));
