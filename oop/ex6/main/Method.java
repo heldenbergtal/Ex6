@@ -7,15 +7,12 @@ import java.util.Map;
 public class Method {
     private final Map<String, Variable> parameters = new HashMap<>();
     private final String returnType;
-    private final int startMethodLine;
-    private final int endMethodLine;
 
 
-    public Method(Map<String, Variable> parameters, String returnType, int startMethodLine, int endMethodLine) {
+
+    public Method(Map<String, Variable> parameters, String returnType) {
         this.returnType = returnType;
         this.parameters.putAll(parameters);
-        this.startMethodLine = startMethodLine;
-        this.endMethodLine = endMethodLine;
     }
 
     public void addLocalVariable(String varName, Variable variable){

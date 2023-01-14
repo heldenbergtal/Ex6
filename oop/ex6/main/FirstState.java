@@ -89,14 +89,16 @@ public class FirstState implements ReadingState {
     private final BufferedReader bufferedReader;
     private final Map<String, Method> methodsMap;
     private final Map<String, Variable> globalVariablesMap;
+    private final Map<Integer, String> methodsLines;
     private int lineCounter = 1;
 
 
     public FirstState(BufferedReader bufferedReader, Map<String, Method> methodsMap,
-                      Map<String, Variable> variablesMap) {
+                      Map<String, Variable> variablesMap, Map<Integer, String> methodsLines) {
         this.bufferedReader = bufferedReader;
         this.methodsMap = methodsMap;
         this.globalVariablesMap = variablesMap;
+        this.methodsLines = methodsLines;
     }
 
     @Override
@@ -123,10 +125,10 @@ public class FirstState implements ReadingState {
         }
     }
 
-    private void getToEndOfMethod() throws IllegalCodeException, IOException {
+    private void validateMethodStructure() throws IllegalCodeException, IOException {
         int openBracketsCounter = INIT_NUMBER_OPEN_BRACKETS_IN_METHOD,
                 closeBracketsCounter = INIT_NUMBER_CLOSE_BRACKETS_IN_METHOD;
-        String currLine;
+        String currLine, prevLine = "";
         while ((currLine = bufferedReader.readLine()) != null){
             lineCounter++;
             int openBracketsIndex = currLine.lastIndexOf(OPEN_CURLY_BRACKETS),
@@ -137,13 +139,19 @@ public class FirstState implements ReadingState {
                 closeBracketsCounter += 1;
             }
             if (openBracketsCounter == closeBracketsCounter) {
-                break;
+                if (prevLine.matches("\\s*return\\s*;")) {
+                    break;
+                } else {
+                    throw new IllegalCodeException(String.format("No return statement before line %d",
+                            lineCounter));
+                }
             }
+            prevLine = currLine;
         }
         if (currLine == null) {
             throw new IllegalCodeException(END_OF_FILE_MSG);
         }
-    }// TODO - check return in second pass?
+    }
 
 
     private void handleAssignments(String line) throws IllegalCodeException {
@@ -206,11 +214,11 @@ public class FirstState implements ReadingState {
             throw new IllegalCodeException(String.format(OVERLOAD_METHOD_MSG, lineCounter));
         }
         int startMethodLine = lineCounter;
-        getToEndOfMethod();
-        int endMethodLine = lineCounter;
+        validateMethodStructure();
         Map<String, Variable> variables = ReadVariables(matcher.group(METHOD_PARAMETERS_INDEX));
-        Method method = new Method(variables, matcher.group(METHOD_RETURN_TYPE_INDEX), startMethodLine, endMethodLine);
+        Method method = new Method(variables, matcher.group(METHOD_RETURN_TYPE_INDEX));
         methodsMap.put(matcher.group(METHOD_NAME_INDEX), method);
+        methodsLines.put(startMethodLine, matcher.group(METHOD_NAME_INDEX));
     }
 
     private Map<String, Variable> ReadVariables(String initVariables) throws IllegalCodeException {

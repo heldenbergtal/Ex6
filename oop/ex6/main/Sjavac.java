@@ -1,8 +1,7 @@
 package oop.ex6.main;
 
 import java.io.*;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class Sjavac {
     static final String PATH_REGEX = ".*\\.sjava";
@@ -21,17 +20,19 @@ public class Sjavac {
     private static ReadingState secondReading;
     private static final Map<String, Method> methodsMap = new HashMap<>();
     private static final Map<String, Variable> globalVariablesMap = new HashMap<>();
+    private static final Map<Integer, String> methodsLines = new TreeMap<>();
 
 
     public static void readFile(String pathName) {
         if (!checkPathNameEndsWithsjava(pathName))
             return;
         try (FileReader fileReader = new FileReader(pathName);
-             BufferedReader bufferedReader = new BufferedReader(fileReader);) {
+             BufferedReader bufferedReader = new BufferedReader(fileReader)) {
+            bufferedReader.mark(1000);  // TODO think of a better option
             ReadingState readingState;
             int readingCounter = 0;
-            firstReading = new FirstState(bufferedReader, methodsMap, globalVariablesMap);
-            secondReading = new SecondState(bufferedReader);
+            firstReading = new FirstState(bufferedReader, methodsMap, globalVariablesMap, methodsLines);
+            secondReading = new SecondState(bufferedReader, methodsMap, globalVariablesMap, methodsLines);
             ReadingState[] readingStates = {firstReading, secondReading};
             while (readingCounter < NUMBER_OF_FILE_READING) {
                 readingState = readingStates[readingCounter];
