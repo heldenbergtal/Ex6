@@ -100,7 +100,7 @@ public class FirstState implements ReadingState {
     }
 
     @Override
-    public void pass() throws IOException {
+    public void pass() throws IllegalCodeException, IOException {
         String line;
         while ((line = bufferedReader.readLine()) != null) {
             Matcher matcherVariableAssignment = variableAssignmentPattern.matcher(line);
@@ -117,13 +117,13 @@ public class FirstState implements ReadingState {
                 ++lineCounter;
                 continue;
             } else {
-                throw new IOException(String.format(ILLEGAL_CODE_MSG, lineCounter));
+                throw new IllegalCodeException(String.format(ILLEGAL_CODE_MSG, lineCounter));
             }
             ++lineCounter;
         }
     }
 
-    private void getToEndOfMethod() throws IOException {
+    private void getToEndOfMethod() throws IllegalCodeException {
         int openBracketsCounter = INIT_NUMBER_OPEN_BRACKETS_IN_METHOD,
                 closeBracketsCounter = INIT_NUMBER_CLOSE_BRACKETS_IN_METHOD;
         String currLine;
@@ -141,12 +141,12 @@ public class FirstState implements ReadingState {
             }
         }
         if (currLine == null) {
-            throw new IOException(END_OF_FILE_MSG);
+            throw new IllegalCodeException(END_OF_FILE_MSG);
         }
     }// TODO - check return in second pass?
 
 
-    private void handleAssignments(String line) throws IOException {
+    private void handleAssignments(String line) throws IllegalCodeException {
         line = line.substring(0, line.lastIndexOf(END_LINE_MARK));
         String[] arr = line.split(VARIABLES_SEPARATOR);
         for (String s : arr) {
@@ -157,7 +157,7 @@ public class FirstState implements ReadingState {
         }
     }
 
-    private void handleDeclarationOrAssignment(String line) throws IOException {
+    private void handleDeclarationOrAssignment(String line) throws IllegalCodeException {
         line = line.substring(0, line.lastIndexOf(END_LINE_MARK));
         String[] arr = line.split(VARIABLES_SEPARATOR);
         String[] firstCommand = arr[FIRST_SLOT_INDEX].split(SPACE);
@@ -176,13 +176,13 @@ public class FirstState implements ReadingState {
     }
 
 
-    private void readVariableDeclaration(Matcher matcher) throws IOException {
+    private void readVariableDeclaration(Matcher matcher) throws IllegalCodeException {
         checkIfVariableWasDeclared(matcher, DECLARATION_VAR_NAME_INDEX);
         Variable variable = new Variable(matcher.group(DECLARATION_VAR_TYPE_INDEX), false, false);
         globalVariablesMap.put(matcher.group(DECLARATION_VAR_NAME_INDEX), variable);
     }
 
-    private void readVariableAssignment(Matcher matcher) throws IOException {
+    private void readVariableAssignment(Matcher matcher) throws IllegalCodeException {
         checkIfDeclaredBeforeAssignment(matcher, ASSIGNMENT_VAR_NAME_INDEX);
         String varName = matcher.group(ASSIGNMENT_VAR_NAME_INDEX);
         String type = globalVariablesMap.get(varName).getType();
@@ -192,7 +192,7 @@ public class FirstState implements ReadingState {
 
     }
 
-    private void readVariableInitialization(Matcher matcher) throws IOException {
+    private void readVariableInitialization(Matcher matcher) throws IllegalCodeException {
         checkIfVariableWasDeclared(matcher, INITIALIZATION_VAR_NAME_INDEX);
         String varAssignment = matcher.group(INITIALIZATION_VAR_ASSIGNMENT_INDEX);
         checkIfTypeMatches(matcher.group(INITIALIZATION_VAR_TYPE_INDEX), varAssignment);
@@ -201,9 +201,9 @@ public class FirstState implements ReadingState {
         globalVariablesMap.put(matcher.group(INITIALIZATION_VAR_NAME_INDEX), variable);
     }
 
-    private void readMethodDeclaration(Matcher matcher) throws IOException {
+    private void readMethodDeclaration(Matcher matcher) throws IllegalCodeException {
         if (methodsMap.containsKey(matcher.group(METHOD_NAME_INDEX))) {
-            throw new IOException(String.format(OVERLOAD_METHOD_MSG, lineCounter));
+            throw new IllegalCodeException(String.format(OVERLOAD_METHOD_MSG, lineCounter));
         }
         int startMethodLine = lineCounter;
         getToEndOfMethod();
@@ -213,7 +213,7 @@ public class FirstState implements ReadingState {
         methodsMap.put(matcher.group(METHOD_NAME_INDEX), method);
     }
 
-    private Map<String, Variable> ReadVariables(String initVariables) throws IOException {
+    private Map<String, Variable> ReadVariables(String initVariables) throws IllegalCodeException {
         String[] arr = initVariables.isEmpty() ? new String[]{} : initVariables.split(VARIABLES_SEPARATOR);
         Map<String, Variable> variables = new HashMap<>();
         for (var param : arr) {
@@ -225,25 +225,25 @@ public class FirstState implements ReadingState {
                 Variable variable = new Variable(type, true, isFinal);
                 variables.put(matcher.group(PARAMETERS_NAME_INDEX), variable);
             } else {
-                throw new IOException(String.format(INCORRECT_PARAMETER_MSG, lineCounter));
+                throw new IllegalCodeException(String.format(INCORRECT_PARAMETER_MSG, lineCounter));
             }
         }
         return variables;
     }
 
-    private void checkParameterAlreadyDefined(Map<String, Variable> variables, String paramName) throws IOException {
+    private void checkParameterAlreadyDefined(Map<String, Variable> variables, String paramName) throws IllegalCodeException {
         if (variables.containsKey(paramName)) {
-            throw new IOException(String.format(PARAMETER_ALREADY_DEFINED_MSG, lineCounter));
+            throw new IllegalCodeException(String.format(PARAMETER_ALREADY_DEFINED_MSG, lineCounter));
         }
     }
 
-    private void checkIfVariableWasDeclared(Matcher matcher, int nameIndex) throws IOException {
+    private void checkIfVariableWasDeclared(Matcher matcher, int nameIndex) throws IllegalCodeException {
         if (globalVariablesMap.containsKey(matcher.group(nameIndex))) {
-            throw new IOException(String.format(VARIABLE_DEFINED_ERROR_MSG, lineCounter));
+            throw new IllegalCodeException(String.format(VARIABLE_DEFINED_ERROR_MSG, lineCounter));
         }
     }
 
-    private void checkIfTypeMatches(String varType, String assignedVar) throws IOException {
+    private void checkIfTypeMatches(String varType, String assignedVar) throws IllegalCodeException {
         if (assignedVar.matches(TYPE_REGEX_MAP.get(varType))) {
             return;
         }
@@ -251,27 +251,27 @@ public class FirstState implements ReadingState {
         if (globalVariablesMap.get(assignedVar).getType().matches(varType)) {
             return;
         }
-        throw new IOException(String.format(INCOMPATIBLE_TYPES_MSG, lineCounter));
+        throw new IllegalCodeException(String.format(INCOMPATIBLE_TYPES_MSG, lineCounter));
     }
 
-    private void checkIfAssigned(String assignedVar) throws IOException {
+    private void checkIfAssigned(String assignedVar) throws IllegalCodeException {
         if (!globalVariablesMap.containsKey(assignedVar)) {
-            throw new IOException(String.format(ASSIGNMENT_BEFORE_DECLARATION_MSG, lineCounter));
+            throw new IllegalCodeException(String.format(ASSIGNMENT_BEFORE_DECLARATION_MSG, lineCounter));
         }
         if (!globalVariablesMap.get(assignedVar).getIsAssigned()) {
-            throw new IOException(String.format(UNINITIALIZED_VAR_ERROR_MSG, lineCounter));
+            throw new IllegalCodeException(String.format(UNINITIALIZED_VAR_ERROR_MSG, lineCounter));
         }
     }
 
-    private void checkIfDeclaredBeforeAssignment(Matcher matcher, int nameIndex) throws IOException {
+    private void checkIfDeclaredBeforeAssignment(Matcher matcher, int nameIndex) throws IllegalCodeException {
         if (!globalVariablesMap.containsKey(matcher.group(nameIndex))) {
-            throw new IOException(String.format(ASSIGNMENT_BEFORE_DECLARATION_MSG, lineCounter));
+            throw new IllegalCodeException(String.format(ASSIGNMENT_BEFORE_DECLARATION_MSG, lineCounter));
         }
     }
 
-    private void checkAssignmentToFinal(Matcher matcher, int nameIndex) throws IOException {
+    private void checkAssignmentToFinal(Matcher matcher, int nameIndex) throws IllegalCodeException {
         if (!globalVariablesMap.get(matcher.group(nameIndex)).getIsFinal()) {
-            throw new IOException(String.format(VALUE_TO_FINAL_VARIABLE_MSG, lineCounter));
+            throw new IllegalCodeException(String.format(VALUE_TO_FINAL_VARIABLE_MSG, lineCounter));
         }
     }
 

@@ -2,12 +2,10 @@ package oop.ex6.main;
 
 import java.io.*;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 public class Sjavac {
-    static final String PATH_REGEX = "..sjava";
+    static final String PATH_REGEX = ".*\\.sjava";
     static final String VARS_TYPES = "int|double|boolean|String|char";
     static final String METHOD_TYPES = "void";
     static final String NAME_REGEX = "(?:[a-zA-Z][0-9a-zA-Z_]*)|_[0-9a-zA-Z_]+";
@@ -15,7 +13,7 @@ public class Sjavac {
     static final String VAR_REGEX = String.format("//s%s//s", VARS_TYPES);
     public static final String IO_ERROR_NUMBER = "2";
     public static final String ILLEGAL_CODE_NUMBER = "1";
-    public static final String LEGAL_NUMBER = "0";
+    public static final String LEGAL_CODE_NUMBER = "0";
     public static final String FILE_ENDING_ERROR = "file should end with .sjava";
 
     public static final int NUMBER_OF_FILE_READING = 2;
@@ -26,14 +24,8 @@ public class Sjavac {
 
 
     public static void readFile(String pathName) {
-        try {
-            if(!pathName.matches(pathName)){
-                throw new IOException(FILE_ENDING_ERROR);
-            }
-        } catch (IOException e){
-            System.out.println(IO_ERROR_NUMBER);
-            System.err.println(e.getMessage());
-        }
+        if (!checkPathNameEndsWithsjava(pathName))
+            return;
         try (FileReader fileReader = new FileReader(pathName);
              BufferedReader bufferedReader = new BufferedReader(fileReader);) {
             ReadingState readingState;
@@ -50,6 +42,25 @@ public class Sjavac {
         } catch (IOException e) {
             System.out.println(IO_ERROR_NUMBER);
             System.err.println(e.getMessage());
+            return;
+        } catch (IllegalCodeException e) {
+            System.out.println(ILLEGAL_CODE_NUMBER);
+            System.err.println(e.getMessage());
+            return;
+        }
+        System.out.println(LEGAL_CODE_NUMBER);
+    }
+
+    private static boolean checkPathNameEndsWithsjava(String pathName) {
+        try {
+            if(!pathName.matches(PATH_REGEX)){
+                throw new IOException(FILE_ENDING_ERROR);
+            }
+            return true;
+        } catch (IOException e){
+            System.out.println(IO_ERROR_NUMBER);
+            System.err.println(e.getMessage());
+            return false;
         }
     }
 
